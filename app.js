@@ -1314,7 +1314,7 @@ function drawLagrangeChart(ctx, W, H, pad, plotW, plotH, result) {
 
 function drawIntegrationChart(ctx, W, H, pad, plotW, plotH, result) {
   const pts = result.graphPoints;
-  const verts = result.trapVertices;
+  const verts = Array.isArray(result.trapVertices) ? result.trapVertices : [];
 
   const allX = pts.map(p => p.x);
   const allY = pts.map(p => p.y);
@@ -1424,19 +1424,21 @@ function drawIntegrationChart(ctx, W, H, pad, plotW, plotH, result) {
   ctx.stroke();
 
   // Subinterval points
-  verts.forEach(v => {
-    const cx = toCanvasX(v.x);
-    const cy = toCanvasY(v.y);
+  if (verts.length > 0) {
+    verts.forEach(v => {
+      const cx = toCanvasX(v.x);
+      const cy = toCanvasY(v.y);
 
-    ctx.beginPath();
-    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
-    ctx.fillStyle = '#8b5cf6';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
-    ctx.fillStyle = '#fff';
-    ctx.fill();
-  });
+      ctx.beginPath();
+      ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#8b5cf6';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+    });
+  }
 
   // Title
   ctx.fillStyle = '#f1f5f9';
