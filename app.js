@@ -469,6 +469,142 @@ function metodoSimpson13(fExpr, a, b, n) {
 }
 
 // ============================================
+// MÉTODO DE MONTE CARLO
+// ============================================
+function metodoMonteCarloIntegracion(fExpr, a, b, nMuestras) {
+  const f = parseMathExpr(fExpr);
+
+  if (a >= b) {
+    return { error: true, message: 'a debe ser menor que b' };
+  }
+  if (nMuestras < 1) {
+    return { error: true, message: 'nMuestras debe ser al menos 1' };
+  }
+
+  // Generar puntos aleatorios en el intervalo [a, b]
+  const xAleatorios = [];
+  const fValores = [];
+  
+  for (let i = 0; i < nMuestras; i++) {
+    const x = a + Math.random() * (b - a);
+    const fx = f(x);
+    xAleatorios.push(x);
+    fValores.push(fx);
+  }
+
+  // Calcular estadísticas
+  const longitudIntervalo = b - a;
+  const sumaF = fValores.reduce((sum, val) => sum + val, 0);
+  const promedioF = sumaF / nMuestras;
+  const integralEstimada = longitudIntervalo * promedioF;
+
+  const fMin = Math.min(...fValores);
+  const fMax = Math.max(...fValores);
+  
+  // Desviación estándar
+  const varianza = fValores.reduce((sum, val) => sum + Math.pow(val - promedioF, 2), 0) / nMuestras;
+  const desvStd = Math.sqrt(varianza);
+
+  // Historial de muestras (primeras 10 y últimas 10)
+  const historial = [];
+  const muestrasAMostrar = Math.min(10, nMuestras);
+
+  for (let i = 0; i < muestrasAMostrar; i++) {
+    historial.push({
+      muestra: i + 1,
+      x: xAleatorios[i],
+      fx: fValores[i]
+    });
+  }
+
+  if (nMuestras > 20) {
+    historial.push({
+      muestra: '...',
+      x: '...',
+      fx: '...'
+    });
+  }
+
+  for (let i = Math.max(muestrasAMostrar, nMuestras - muestrasAMostrar); i < nMuestras; i++) {
+    historial.push({
+      muestra: i + 1,
+      x: xAleatorios[i],
+      fx: fValores[i]
+    });
+  }
+
+  // Graph data
+  const graphPoints = [];
+  const steps = 200;
+  for (let s = 0; s <= steps; s++) {
+    const xv = a + (b - a) * s / steps;
+    graphPoints.push({ x: xv, y: f(xv) });
+  }
+
+  return {
+    convergio: true,
+    isIntegration: true,
+    metodoIntegracion: 'Monte Carlo',
+    integral: integralEstimada,
+    nMuestras: nMuestras,
+    intervalo: { a, b },
+    longitudIntervalo: longitudIntervalo,
+    historial: historial,
+    estadisticas: {
+      fMin: fMin,
+      fMax: fMax,
+      fPromedio: promedioF,
+      desvStd: desvStd
+    },
+    graphPoints: graphPoints,
+    columns: ['Muestra', 'x', 'f(x)'],
+    getRow: (h) => {
+      if (h.muestra === '...') return ['...', '...', '...'];
+      return [h.muestra, h.x.toFixed(6), h.fx.toFixed(6)];
+    }
+  };
+}
+
+// Aproximación de π usando Monte Carlo
+function aproximarPi(nPuntos) {
+  if (nPuntos < 1) {
+    return { error: true, message: 'nPuntos debe ser al menos 1' };
+  }
+
+  let puntosDestro = 0;
+
+  // Generar puntos aleatorios y contar los que caen dentro del círculo
+  for (let i = 0; i < nPuntos; i++) {
+    const x = Math.random();
+    const y = Math.random();
+    const distancia = Math.sqrt(x * x + y * y);
+
+    if (distancia <= 1) {
+      puntosDestro++;
+    }
+  }
+
+  // π ≈ 4 * (puntos_dentro / puntos_totales)
+  const piAproximado = 4 * puntosDestro / nPuntos;
+  const piReal = Math.PI;
+  const error = Math.abs(piAproximado - piReal);
+  const porcentajeError = (error / piReal) * 100;
+
+  return {
+    convergio: true,
+    isPiAproximation: true,
+    piAproximado: piAproximado,
+    piReal: piReal,
+    nPuntos: nPuntos,
+    puntosDestro: puntosDestro,
+    puntosAfuera: nPuntos - puntosDestro,
+    razonDestro: puntosDestro / nPuntos,
+    errorAbsoluto: error,
+    errorPorcentaje: porcentajeError
+  };
+}
+
+// ============================================
 // UI CONTROLLER
 // ============================================
 const METHODS = {
@@ -546,6 +682,25 @@ const METHODS = {
       { id: 'n', label: 'Subintervalos (n, par)', placeholder: '4', type: 'number' },
     ],
     run: (v) => metodoSimpson13(v.f_expr, parseFloat(v.a), parseFloat(v.b), parseInt(v.n))
+  },
+  monte_carlo: {
+    name: 'Monte Carlo - Integración',
+    description: 'Estima integrales usando muestreo aleatorio.',
+    fields: [
+      { id: 'f_expr', label: 'Función f(x)', placeholder: 'x^2', hint: 'Función a integrar', fullWidth: true },
+      { id: 'a', label: 'Límite inferior a', placeholder: '0', type: 'number' },
+      { id: 'b', label: 'Límite superior b', placeholder: '1', type: 'number' },
+      { id: 'n_muestras', label: 'Número de muestras', placeholder: '10000', type: 'number' },
+    ],
+    run: (v) => metodoMonteCarloIntegracion(v.f_expr, parseFloat(v.a), parseFloat(v.b), parseInt(v.n_muestras))
+  },
+  pi_approximation: {
+    name: 'Monte Carlo - Aproximar π',
+    description: 'Aproxima π usando círculo inscrito en cuadrado.',
+    fields: [
+      { id: 'n_puntos', label: 'Número de puntos', placeholder: '100000', type: 'number' },
+    ],
+    run: (v) => aproximarPi(parseInt(v.n_puntos))
   }
 };
 
@@ -570,7 +725,9 @@ function renderSidebar() {
     aitken: '⚡',
     lagrange: '📈',
     trapecio: '📐',
-    simpson: '📏'
+    simpson: '📏',
+    monte_carlo: '🎲',
+    pi_approximation: '🥧'
   };
   const subtitles = {
     biseccion: 'Búsqueda de raíces',
@@ -579,7 +736,9 @@ function renderSidebar() {
     aitken: 'Δ² de Aitken',
     lagrange: 'Polinomio interpolante',
     trapecio: 'Regla del Trapecio',
-    simpson: 'Regla de Simpson 1/3'
+    simpson: 'Regla de Simpson 1/3',
+    monte_carlo: 'Muestreo aleatorio',
+    pi_approximation: 'Aproximación de π'
   };
 
   const list = $('#method-list');
@@ -798,14 +957,31 @@ function displayResults(result) {
 
   const isLagrange = METHODS[currentMethod].isLagrange;
   const isIntegration = result.isIntegration;
+  const isPiAproximation = result.isPiAproximation;
 
-  if (isIntegration) {
+  if (isPiAproximation) {
+    addSummaryItem(summaryGrid, 'π Aproximado', fmt(result.piAproximado), true);
+    addSummaryItem(summaryGrid, 'π Real', fmt(result.piReal), false);
+    addSummaryItem(summaryGrid, 'Error Absoluto', fmtSci(result.errorAbsoluto), false);
+    addSummaryItem(summaryGrid, 'Error %', fmt(result.errorPorcentaje) + '%', false);
+    addSummaryItem(summaryGrid, 'Puntos dentro', result.puntosDestro.toLocaleString(), false);
+    addSummaryItem(summaryGrid, 'Puntos totales', result.nPuntos.toLocaleString(), false);
+  } else if (isIntegration) {
     addSummaryItem(summaryGrid, 'Integral Aproximada', fmt(result.integral), true);
-    addSummaryItem(summaryGrid, 'Gauss-Legendre (ref.)', fmt(result.gaussLegendre), false);
-    addSummaryItem(summaryGrid, 'Error vs G-L', fmtSci(result.errorVsGauss), false);
-    addSummaryItem(summaryGrid, 'Subintervalos (n)', result.n, false);
-    addSummaryItem(summaryGrid, 'Paso (h)', fmt(result.h), false);
-    addSummaryItem(summaryGrid, 'Intervalo', `[${fmt(result.a)}, ${fmt(result.b)}]`, false);
+    if (result.gaussLegendre) {
+      addSummaryItem(summaryGrid, 'Gauss-Legendre (ref.)', fmt(result.gaussLegendre), false);
+      addSummaryItem(summaryGrid, 'Error vs G-L', fmtSci(result.errorVsGauss), false);
+    }
+    if (result.n) {
+      addSummaryItem(summaryGrid, 'Subintervalos (n)', result.n, false);
+    }
+    if (result.h) {
+      addSummaryItem(summaryGrid, 'Paso (h)', fmt(result.h), false);
+    }
+    if (result.nMuestras) {
+      addSummaryItem(summaryGrid, 'Muestras', result.nMuestras, false);
+    }
+    addSummaryItem(summaryGrid, 'Intervalo', `[${fmt(result.a || result.intervalo.a)}, ${fmt(result.b || result.intervalo.b)}]`, false);
   } else if (isLagrange) {
     addSummaryItem(summaryGrid, 'Grado del Polinomio', result.grado, false);
     addSummaryItem(summaryGrid, 'Puntos utilizados', result.dataPuntos.length, false);
@@ -827,7 +1003,7 @@ function displayResults(result) {
   renderTable(result);
 
   // Chart
-  renderChart(result, isLagrange, isIntegration);
+  renderChart(result, isLagrange, isIntegration, isPiAproximation);
 }
 
 function addSummaryItem(container, label, value, highlight) {
@@ -867,6 +1043,16 @@ function renderTable(result) {
 // --- Chart Rendering (Canvas) ---
 function renderChart(result, isLagrange) {
   const container = $('#chart-container');
+  
+  const isIntegration = arguments[2];
+  const isPiAproximation = arguments[3];
+  
+  // No draw chart for Pi approximation
+  if (isPiAproximation) {
+    container.innerHTML = '<p style="color:var(--text-muted);padding:16px;text-align:center;">Método probabilístico - Sin gráfico de convergencia</p>';
+    return;
+  }
+  
   container.innerHTML = '<canvas id="chart-canvas"></canvas>';
   const canvas = $('#chart-canvas');
   const ctx = canvas.getContext('2d');
@@ -884,7 +1070,6 @@ function renderChart(result, isLagrange) {
   const plotW = W - pad.left - pad.right;
   const plotH = H - pad.top - pad.bottom;
 
-  const isIntegration = arguments[2];
   if (isIntegration && result.graphPoints) {
     drawIntegrationChart(ctx, W, H, pad, plotW, plotH, result);
   } else if (isLagrange && result.graphPoints) {
@@ -1186,8 +1371,8 @@ function drawIntegrationChart(ctx, W, H, pad, plotW, plotH, result) {
   ctx.lineTo(W - pad.right, y0);
   ctx.stroke();
 
-  // Shaded area under curve (trapezoids)
-  if (verts.length > 1) {
+  // Shaded area under curve (trapezoids) - solo para Trapecio/Simpson
+  if (verts && verts.length > 1) {
     const areaGrad = ctx.createLinearGradient(0, pad.top, 0, pad.top + plotH);
     areaGrad.addColorStop(0, 'rgba(99, 102, 241, 0.25)');
     areaGrad.addColorStop(1, 'rgba(99, 102, 241, 0.03)');
